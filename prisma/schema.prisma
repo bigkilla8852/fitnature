@@ -1,0 +1,279 @@
+// prisma/schema.prisma
+// Erklärt: Hier definieren wir, wie unsere Datenbank aussieht.
+// Jedes "model" ist eine Tabelle in der Datenbank.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================
+// BENUTZER-TABELLE
+// =============================================
+model User {
+  id            String    @id @default(cuid())  // Eindeutige ID
+  vorname       String
+  nachname      String
+  email         String    @unique
+  emailVerified DateTime?                        // Wann E-Mail bestätigt wurde
+  telefon       String?
+  strasse       String?
+  hausnummer    String?
+  plz           String?
+  ort           String?
+  land          String?   @default("Deutschland")
+  passwortHash  String                           // Verschlüsseltes Passwort
+  rolle         Rolle     @default(USER)         // user, trainer oder admin
+  credits       Int       @default(0)            // Aktuelles Guthaben
+  aktiv         Boolean   @default(true)
+  geloeschtAm   DateTime?                        // Für DSGVO-Löschung
+  
+  erstelltAm    DateTime  @default(now())
+  aktualisiertAm DateTime @updatedAt
+
+  // Verknüpfungen zu anderen Tabellen
+  buchungen         Buchung[]
+  kreditTransaktionen KreditTransaktion[]
+  trainerProfil     TrainerProfil?
+  anfragen          Anfrage[]
+  sitzungen         Sitzung[]
+
+  @@index([email])  // Index für schnellere Suche
+}
+
+// Welche Rollen gibt es?
+enum Rolle {
+  USER
+  TRAINER
+  ADMIN
+}
+
+// =============================================
+// TRAINER-PROFIL (zusätzlich zum normalen User)
+// =============================================
+model TrainerProfil {
+  id                String        @id @default(cuid())
+  userId            String        @unique
+  user              User          @relation(fields: [userId], references: [id])
+  
+  qualifikation     String?       // Beschreibung
+  qualifikationDatei String?      // Pfad zur hochgeladenen Datei
+  erfahrungJahre    Int?
+  spezialisierung   String[]      // z.B. ["Yoga", "HIIT", "Krafttraining"]
+  beschreibung      String?       // Kurze Biografie
+  profilbild        String?       // URL zum Bild
+  
+  status            TrainerStatus @default(AUSSTEHEND)
+  freigegebenVon    String?       // Admin-ID
+  freigegebenAm     DateTime?
+  
+  gesamtEinnahmen   Decimal       @default(0) @db.Decimal(10, 2)
+  ausstehendAuszahlung Decimal    @default(0) @db.Decimal(10, 2)
+  
+  erstelltAm        DateTime      @default(now())
+  
+  kurse             Kurs[]
+  auszahlungen      Auszahlung[]
+}
+
+enum TrainerStatus {
+  AUSSTEHEND    // Noch nicht geprüft
+  GENEHMIGT     // Freigegeben
+  ABGELEHNT     // Abgelehnt
+  GESPERRT      // Nachträglich gesperrt
+}
+
+// =============================================
+// KURSE
+// =============================================
+model Kurs {
+  id              String    @id @default(cuid())
+  trainerId       String
+  trainer         TrainerProfil @relation(fields: [trainerId], references: [id])
+  
+  titel           String
+  beschreibung    String    @db.Text
+  kursart         String    // z.B. "Yoga", "HIIT", "Laufen"
+  
+  // Ort
+  adresse         String
+  stadt           String
+  plz             String
+  latitude        Float?    // Für Google Maps
+  longitude       Float?
+  
+  // Zeit
+  startzeit       DateTime
+  endzeit         DateTime
+  dauerMinuten    Int
+  
+  // Kapazität
+  maxTeilnehmer   Int
+  
+  // Preis (immer 1 Credit)
+  preisCredits    Int       @default(1)
+  preisEuro       Decimal   @db.Decimal(10, 2)  // Aktueller Euro-Wert
+  
+  aktiv           Boolean   @default(true)
+  abgesagt        Boolean   @default(false)
+  
+  erstelltAm      DateTime  @default(now())
+  aktualisiertAm  DateTime  @updatedAt
+  
+  buchungen       Buchung[]
+
+  @@index([startzeit])
+  @@index([stadt])
+  @@index([kursart])
+}
+
+// =============================================
+// BUCHUNGEN
+// =============================================
+model Buchung {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id])
+  kursId          String
+  kurs            Kurs           @relation(fields: [kursId], references: [id])
+  
+  status          BuchungsStatus @default(BESTAETIGT)
+  wartelistePos   Int?           // Position auf Warteliste (null = direkt gebucht)
+  
+  erstelltAm      DateTime       @default(now())
+  stornierungsgrund String?
+
+  @@unique([userId, kursId])    // Jeder kann nur einmal buchen
+  @@index([userId])
+  @@index([kursId])
+}
+
+enum BuchungsStatus {
+  BESTAETIGT    // Platz gesichert
+  WARTELISTE    // Auf Warteliste
+  STORNIERT     // Storniert
+  ABGESCHLOSSEN // Kurs hat stattgefunden
+}
+
+// =============================================
+// KREDIT-TRANSAKTIONEN (Buchführung)
+// =============================================
+model KreditTransaktion {
+  id          String              @id @default(cuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id])
+  
+  betrag      Int                 // Positiv = Gutschrift, Negativ = Abbuchung
+  typ         TransaktionsTyp
+  beschreibung String
+  
+  // Zahlungsreferenz (Stripe/PayPal)
+  zahlungsId  String?
+  zahlungsAnbieter String?        // "stripe" oder "paypal"
+  
+  erstelltAm  DateTime            @default(now())
+
+  @@index([userId])
+}
+
+enum TransaktionsTyp {
+  KAUF          // Credits gekauft
+  BUCHUNG       // Credit für Kursbuchung verwendet
+  STORNIERUNG   // Credit zurückgegeben
+  ADMIN_ANPASSUNG // Manuell vom Admin
+}
+
+// =============================================
+// KONTAKT-ANFRAGEN
+// =============================================
+model Anfrage {
+  id            String    @id @default(cuid())
+  
+  name          String
+  email         String
+  telefon       String?
+  organisation  String?
+  anfrageTyp    String    // z.B. "Corporate Event", "Teambuilding"
+  beschreibung  String    @db.Text
+  wunschtermin  DateTime?
+  
+  userId        String?   // Falls eingeloggter User
+  user          User?     @relation(fields: [userId], references: [id])
+  
+  status        String    @default("NEU")  // NEU, IN_BEARBEITUNG, ABGESCHLOSSEN
+  adminNotiz    String?
+  
+  erstelltAm    DateTime  @default(now())
+}
+
+// =============================================
+// AUSZAHLUNGEN AN TRAINER
+// =============================================
+model Auszahlung {
+  id          String           @id @default(cuid())
+  trainerId   String
+  trainer     TrainerProfil    @relation(fields: [trainerId], references: [id])
+  
+  betrag      Decimal          @db.Decimal(10, 2)
+  status      AuszahlungsStatus @default(AUSSTEHEND)
+  
+  angefordertAm DateTime       @default(now())
+  bezahltAm     DateTime?
+  adminNotiz    String?
+}
+
+enum AuszahlungsStatus {
+  AUSSTEHEND
+  VERARBEITUNG
+  BEZAHLT
+  ABGELEHNT
+}
+
+// =============================================
+// ADMIN-LOGS (Audit Trail)
+// =============================================
+model AdminLog {
+  id          String    @id @default(cuid())
+  adminId     String
+  aktion      String    // z.B. "TRAINER_FREIGEGEBEN", "KURS_GELOESCHT"
+  zielTyp     String    // z.B. "User", "Kurs"
+  zielId      String
+  details     String?
+  erstelltAm  DateTime  @default(now())
+
+  @@index([adminId])
+  @@index([erstelltAm])
+}
+
+// =============================================
+// SITZUNGEN (für 2FA)
+// =============================================
+model Sitzung {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  
+  token       String    @unique
+  smsCode     String?
+  codeAblauf  DateTime?
+  codeVersuche Int      @default(0)
+  
+  erstelltAm  DateTime  @default(now())
+  ablaufAm    DateTime
+
+  @@index([token])
+}
+
+// =============================================
+// SYSTEM-EINSTELLUNGEN
+// =============================================
+model Einstellung {
+  id      String  @id @default(cuid())
+  schluessel String @unique
+  wert    String
+  
+  aktualisiertAm DateTime @updatedAt
+}
