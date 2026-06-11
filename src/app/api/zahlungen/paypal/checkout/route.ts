@@ -62,10 +62,13 @@ export async function POST(req: NextRequest) {
         }
       })
     })
-
+    type PayPalLink = {
+      rel: string
+      href: string
+    }
     const bestellDaten = await bestellung.json()
-    const approveUrl = bestellDaten.links.find(
-      (l: any) => l.rel === "approve"
+    const approveUrl = bestellDaten.links?.find(
+      (l: PayPalLink) => l.rel === "approve"
     )?.href
 
     return NextResponse.json({ approveUrl })

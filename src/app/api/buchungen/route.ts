@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       buchungsId: ergebnis.buchung.id
     })
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     const fehlermeldungen: Record<string, string> = {
       NICHT_GENUG_CREDITS: "Nicht genug Credits. Bitte zuerst Credits kaufen.",
       KURS_NOT_FOUND: "Kurs nicht gefunden",
@@ -124,8 +124,13 @@ export async function POST(req: NextRequest) {
       USER_NOT_FOUND: "Benutzer nicht gefunden"
     }
 
+    const fehlerKey =
+    error instanceof Error ? error.message : ""
+
     return NextResponse.json(
-      { fehler: fehlermeldungen[error.message] || "Buchungsfehler" },
+      {
+        fehler: fehlermeldungen[fehlerKey] || "Buchungsfehler"
+      },
       { status: 400 }
     )
   }

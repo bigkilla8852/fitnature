@@ -45,12 +45,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     // Rolle zum Token hinzufügen
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id
-        token.rolle = (user as any).rolle
-      }
-      return token
-    },
+  if (user) {
+    token.id = user.id
+
+    if ("rolle" in user) {
+      token.rolle = user.rolle as string
+    }
+  }
+
+  return token
+},
     // Rolle zur Session hinzufügen
     async session({ session, token }) {
       if (token) {
