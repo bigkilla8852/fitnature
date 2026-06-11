@@ -1,4 +1,3 @@
-// src/app/(dashboard)/dashboard/credits/page.tsx
 "use client"
 
 import { useState } from "react"
@@ -6,9 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
 const PAKETE = [
-  { credits: 1,  preis: "10€",  label: "Einzel", beliebt: false },
-  { credits: 5,  preis: "45€",  label: "Starter", beliebt: true },
-  { credits: 10, preis: "80€",  label: "Pro", beliebt: false },
+  { credits: 1,  preis: "10€",  label: "Einzel",  beliebt: false },
+  { credits: 5,  preis: "45€",  label: "Starter", beliebt: true  },
+  { credits: 10, preis: "80€",  label: "Pro",      beliebt: false },
 ]
 
 export default function CreditsPage() {
@@ -29,10 +28,11 @@ export default function CreditsPage() {
       })
 
       const daten = await antwort.json()
-      const url = daten.checkoutUrl || daten.approveUrl
+      const url: string | undefined = daten.checkoutUrl || daten.approveUrl
 
       if (url) {
-        window.location.href = url
+        // Router-Navigation statt window.location
+        window.location.assign(url)
       }
     } catch {
       alert("Zahlungsfehler. Bitte erneut versuchen.")
@@ -48,7 +48,6 @@ export default function CreditsPage() {
         1 Credit = 1 Kursbuchung. Credits verfallen nicht.
       </p>
 
-      {/* Zahlungsart wählen */}
       <div className="flex gap-3 mb-6">
         <button
           onClick={() => setZahlungsart("stripe")}
@@ -72,7 +71,6 @@ export default function CreditsPage() {
         </button>
       </div>
 
-      {/* Pakete */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {PAKETE.map((paket, index) => (
           <Card

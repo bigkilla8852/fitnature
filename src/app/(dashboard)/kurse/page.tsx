@@ -1,20 +1,18 @@
-// src/app/(dashboard)/kurse/page.tsx
 import { prisma } from "@/lib/prisma"
 import { KursKarte } from "@/components/kurs/KursKarte"
 import { KursFilter } from "@/components/kurs/KursFilter"
+import { Prisma } from "@prisma/client"
 
-// Diese Seite lädt die Kurse direkt vom Server (Server Component)
 export default async function KursePage({
   searchParams
 }: {
   searchParams: { ort?: string; kursart?: string; datum?: string }
 }) {
-  
-  // Filter aus URL-Parametern
-  const filter: any = {
+
+  const filter: Prisma.KursWhereInput = {
     aktiv: true,
     abgesagt: false,
-    startzeit: { gte: new Date() } // Nur zukünftige Kurse
+    startzeit: { gte: new Date() }
   }
 
   if (searchParams.ort) {
@@ -23,23 +21,22 @@ export default async function KursePage({
   if (searchParams.kursart) {
     filter.kursart = searchParams.kursart
   }
+  if (searchParams.datum) {
+    filter.startzeit = { gte: new Date(searchParams.datum) }
+  }
 
-  // Kurse aus Datenbank laden
   const kurse = await prisma.kurs.findMany({
     where: filter,
     include: {
       trainer: {
         include: { user: { select: { vorname: true, nachname: true } } }
       },
-      buchungen: {
-        where: { status: "BESTAETIGT" }
-      }
+      buchungen: { where: { status: "BESTAETIGT" } }
     },
     orderBy: { startzeit: "asc" }
   })
 
-  // Für jede Kursart die Liste erstellen
-  const kursarten = await prisma.kurs.findMany({
+  const kursartenRaw = await prisma.kurs.findMany({
     where: { aktiv: true },
     select: { kursart: true },
     distinct: ["kursart"]
@@ -55,13 +52,11 @@ export default async function KursePage({
           {kurse.length} Kurse verfügbar
         </p>
 
-        {/* Filter-Bereich */}
         <KursFilter
-          kursarten={kursarten.map(k => k.kursart)}
+          kursarten={kursartenRaw.map(k => k.kursart)}
           aktuelleFilter={searchParams}
         />
 
-        {/* Kurs-Gitter */}
         {kurse.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
             <div className="text-5xl mb-4">🌿</div>
