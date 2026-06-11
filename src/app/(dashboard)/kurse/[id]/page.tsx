@@ -8,23 +8,34 @@ import { BuchungsButton } from "@/components/kurs/BuchungsButton"
 import { auth } from "@/lib/auth"
 
 export default async function KursDetailPage({
-  params
+  params,
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  // Kurs laden
+  const { id } = await params
+
   const kurs = await prisma.kurs.findUnique({
-    where: { id: params.id, aktiv: true },
+    where: {
+      id,
+      aktiv: true,
+    },
     include: {
       trainer: {
         include: {
           user: {
-            select: { vorname: true, nachname: true, email: false }
-          }
-        }
+            select: {
+              vorname: true,
+              nachname: true,
+            },
+          },
+        },
       },
-      buchungen: { where: { status: "BESTAETIGT" } }
-    }
+      buchungen: {
+        where: {
+          status: "BESTAETIGT",
+        },
+      },
+    },
   })
 
   if (!kurs) notFound()
