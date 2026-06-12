@@ -44,14 +44,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.rolle;
+        token.rolle = user.rolle; // Angenommen, dein User-Modell hat ein "role"-Feld
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string;
-        session.user.rolle = token.role as string;
+        session.user.id = token.id;
+        session.user.rolle = token.rolle;
       }
       return session;
     },
