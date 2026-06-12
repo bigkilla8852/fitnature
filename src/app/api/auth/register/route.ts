@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { sendVerificationEmail } from "@/lib/email"
 import crypto from "crypto"
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {

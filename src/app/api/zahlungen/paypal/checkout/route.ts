@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 
+export const runtime = "nodejs";
+
 const PAYPAL_API = process.env.NODE_ENV === "production"
   ? "https://api-m.paypal.com"
   : "https://api-m.sandbox.paypal.com"
