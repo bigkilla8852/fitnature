@@ -1,75 +1,59 @@
-// src/lib/auth.ts
-// Erklärt: NextAuth verwaltet alle Login-Sessions.
+// src/auth.ts (oder src/lib/auth.ts)
+import NextAuth from "next-auth";
+import GitHub from "next-auth/providers/github";
+import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "@/lib/prisma";
 
-import NextAuth from "next-auth"
-import Credentials from "next-auth/providers/credentials"
-import { prisma } from "@/lib/prisma"
-import bcrypt from "bcryptjs"
-
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: PrismaAdapter(prisma),
   providers: [
+    GitHub({
+      clientId: process.env.GITHUB_ID,
+      clientSecret: process.env.GITHUB_SECRET,
+    }),
+    Google({
+      clientId: process.env.GOOGLE_ID,
+      clientSecret: process.env.GOOGLE_SECRET,
+    }),
     Credentials({
-      name: "credentials",
       credentials: {
-        email: { label: "E-Mail", type: "email" },
-        passwort: { label: "Passwort", type: "password" },
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.passwort) return null
+        if (!credentials?.email || !credentials?.password) return null;
         
-        // User in der Datenbank suchen
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string }
-        })
+          where: { email: credentials.email as string },
+        });
         
-        if (!user) return null
+        if (!user) return null;
         
-        // Passwort überprüfen
-        const passwortKorrekt = await bcrypt.compare(
-          credentials.passwort as string,
-          user.passwortHash
-        )
+        // Passwort-Verifizierung hier
+        // const isValid = await bcrypt.compare(credentials.password as string, user.password);
+        // if (!isValid) return null;
         
-        if (!passwortKorrekt) return null
-        
-        // User zurückgeben (ohne Passwort!)
-        return {
-          id: user.id,
-          email: user.email,
-          name: `${user.vorname} ${user.nachname}`,
-          rolle: user.rolle,
-        }
-      }
-    })
+        return user;
+      },
+    }),
   ],
+  session: { strategy: "jwt" },
   callbacks: {
-    // Rolle zum Token hinzufügen
     async jwt({ token, user }) {
-  if (user) {
-    token.id = user.id
-
-    if ("rolle" in user) {
-      token.rolle = user.rolle as string
-    }
-  }
-
-  return token
-},
-    // Rolle zur Session hinzufügen
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string
-        session.user.rolle = token.rolle as string
+      if (user) {
+        token.id = user.id;
+        token.role = user.rolle;
       }
-      return session
-    }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.rolle = token.role as string;
+      }
+      return session;
+    },
   },
-  pages: {
-    signIn: '/login',    // Eigene Login-Seite
-    error: '/login',
-  },
-  session: {
-    strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 1 Tag
-  }
-})
+});
