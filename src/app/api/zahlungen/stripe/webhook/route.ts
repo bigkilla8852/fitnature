@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   // Zahlung erfolgreich?
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.CheckoutSession
+    const session = event.data.object as Stripe.Checkout.Session
     const userId = session.metadata?.userId
     const credits = parseInt(session.metadata?.credits || "0")
 
